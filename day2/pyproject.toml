@@ -1,0 +1,16 @@
+[project]
+name = "film-review-platform-day2"
+version = "0.1.0"
+description = "Film Review Platform - Day 2: Pydantic v2 Schemas"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.141.1",
+    "httpx>=0.28.1",
+    "pydantic>=2.10.0",
+    "uvicorn>=0.53.0",
+]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
