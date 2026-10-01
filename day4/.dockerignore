@@ -1,0 +1,30 @@
+# Python caches and virtual environments
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Git and IDE files
+.git/
+.gitignore
+.dockerignore
+.idea/
+.vscode/
+*.sublime-*
+
+# Environment and sensitive data
+.env
+.env.*
+*.local
+
+# Docker files
+Dockerfile*
+docker-compose*.yml
+
+# Logs and scratch files
+*.log
+scratch/
