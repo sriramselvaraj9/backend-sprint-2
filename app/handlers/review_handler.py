@@ -63,11 +63,13 @@ class ReviewHandler:
         review_id: uuid.UUID | str,
         update_data: ReviewUpdate | dict[str, Any] | None = None,
         current_user_id: uuid.UUID | str | None = None,
+        is_admin: bool = False,
     ) -> dict:
         updated = await self.service.update_review(
             review_id=review_id,
             current_user_id=current_user_id,
             update_data=update_data,
+            is_admin=is_admin,
         )
         return {
             "message": f"Review with ID {review_id} updated successfully",
@@ -87,8 +89,13 @@ class ReviewHandler:
         self,
         review_id: uuid.UUID | str,
         current_user_id: uuid.UUID | str | None = None,
+        is_admin: bool = False,
     ) -> dict:
-        await self.service.delete_review(review_id, current_user_id=current_user_id)
+        await self.service.delete_review(
+            review_id=review_id,
+            current_user_id=current_user_id,
+            is_admin=is_admin,
+        )
         return {
             "message": f"Review with ID {review_id} was deleted successfully",
             "review_id": str(review_id),

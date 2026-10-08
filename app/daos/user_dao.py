@@ -68,28 +68,32 @@ class UserDAO:
 
     async def get_admin_stats(self) -> dict:
         """
-        Fetch real aggregation statistics from the PostgreSQL database.
-        Queries live counts for users, films, reviews, and active database sessions.
+        Fetch platform-wide statistics from the PostgreSQL database:
+        - Total film count (active films)
+        - Total review count
+        - Overall average rating across all reviews
+        - Username of the user who has submitted the most reviews
         """
-        total_users = (await self.session.scalar(select(func.count(User.id)))) or 0
         total_films = (await self.session.scalar(select(func.count(Film.id)).where(Film.is_active == True))) or 0
-
         total_reviews = (await self.session.scalar(select(func.count(Review.id)))) or 0
 
-        try:
-            active_res = await self.session.execute(
-                text("SELECT count(*) FROM pg_stat_activity WHERE state = 'active'")
-            )
-            active_sessions = active_res.scalar() or 1
-        except Exception:  # noqa: BLE001
-            active_sessions = 1
+        avg_res = await self.session.scalar(select(func.avg(Review.rating)))
+        average_rating = round(float(avg_res), 2) if avg_res is not None else None
+
+        top_user_stmt = (
+            select(User.username)
+            .join(Review, Review.user_id == User.id)
+            .group_by(User.id, User.username)
+            .order_by(func.count(Review.id).desc())
+            .limit(1)
+        )
+        top_user_res = await self.session.execute(top_user_stmt)
+        top_reviewer = top_user_res.scalar_one_or_none()
 
         return {
-            "message": "Admin statistics fetched successfully",
-            "stats": {
-                "total_users": total_users,
-                "total_films": total_films,
-                "total_reviews": total_reviews,
-                "active_sessions": active_sessions,
-            },
+            "total_films": total_films,
+            "total_reviews": total_reviews,
+            "average_rating": average_rating,
+            "top_reviewer": top_reviewer,
         }
+

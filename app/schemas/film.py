@@ -24,16 +24,8 @@ class FilmBase(BaseSchema):
             raise ValueError(f"release_year cannot be more than 5 years in the future (max {current_year + 5})")
         return value
 
-
-class FilmCreate(FilmBase):
-    """
-    Schema for creating a new film.
-    Inherits all core attributes and validation from FilmBase.
-    """
-
-
 class FilmResponse(FilmBase):
-    """
+    """ 
     Schema for film responses.
     Inherits core film attributes from FilmBase, adds id and computed years_ago.
     """
@@ -52,10 +44,6 @@ class FilmResponse(FilmBase):
 
 
 class FilmYearRange(BaseSchema):
-    """
-    Demonstrates model-level validation using @model_validator(mode='after').
-    Enforces the relationship: start_year < end_year.
-    """
 
     start_year: int = Field(..., description="Start release year")
     end_year: int = Field(..., description="End release year")
@@ -65,3 +53,11 @@ class FilmYearRange(BaseSchema):
         if self.start_year >= self.end_year:
             raise ValueError("start_year must be strictly less than end_year (start_year < end_year)")
         return self
+
+
+
+class FilmCreate(FilmBase):
+    """
+    Schema for creating a new film.
+    Inherits all core attributes and validation from FilmBase.
+    """

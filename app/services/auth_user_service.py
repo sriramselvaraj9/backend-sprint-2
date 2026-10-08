@@ -82,10 +82,10 @@ class UserService:
             username=user_data.username,
             email=user_data.email,
             password_hash=password_hash,
-            role="user",
+            role=user_data.role if hasattr(user_data, "role") and user_data.role else "viewer",
         )
         created_user = await self.user_dao.create(new_user)
-        logger.info(f"User '{created_user.username}' (ID: {created_user.id}) registered successfully")
+        logger.info(f"User '{created_user.username}' (ID: {created_user.id}, role: {created_user.role}) registered successfully")
         return created_user
 
     async def login_user(self, credentials: LoginRequest) -> TokenResponse:

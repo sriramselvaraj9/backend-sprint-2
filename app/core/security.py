@@ -8,7 +8,7 @@ from app.config import settings
 
 # Tells Passlib to use the bcrypt algorithm
 # Automatically marks older hashing schemes as deprecated if you ever add new ones later
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto") #CryptContext is a class from the passlib library
+pwd_context = CryptContext(schemes=["bcrypt"]) #CryptContext is a class from the passlib library
 
 # JWT Signature Algorithm
 JWT_ALGORITHM = "HS256"

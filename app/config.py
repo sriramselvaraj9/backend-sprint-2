@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     Typed centralized application settings loaded from .env file.
     Missing required environment variables will cause startup validation failure.
     """
-
+    
     DATABASE_URL: str
     TOKEN_SECRET_KEY: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int

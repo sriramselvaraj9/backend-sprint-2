@@ -1,7 +1,7 @@
 import uuid
 from collections.abc import AsyncGenerator
 
-from fastapi import Depends, Header
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -175,17 +175,7 @@ async def get_current_user(
     auth_credentials: HTTPAuthorizationCredentials | None = Depends(http_bearer_scheme),
     authorization: str | None = Header(default=None, alias="Authorization"),
 ) -> AuthenticatedUser:
-    """
-    Reusable FastAPI dependency to extract and verify JWT access tokens from Authorization header.
-    Requirements:
-    1. Extract the Bearer access token from the Authorization header or HTTPBearer scheme.
-    2. Decode the JWT using python-jose.
-    3. Verify the JWT signature.
-    4. Verify the token has not expired.
-    5. Verify required claims such as 'sub'.
-    6. Ensure the token is an access token, not a refresh token.
-    7. Return the authenticated user's identity (no direct database lookup required).
-    """
+
     token: str | None = None
     if auth_credentials is not None:
         token = auth_credentials.credentials
@@ -219,7 +209,41 @@ async def get_current_user(
 
     return AuthenticatedUser(
         id=user_id,
-        role=payload.get("role", "user"),
+        role=payload.get("role", "viewer"),
         username=payload.get("username"),
         email=payload.get("email"),
     )
+
+
+# ---------------------------------------------------------
+# Role Enforcement Dependency
+# ---------------------------------------------------------
+def require_role(*roles: str | list[str] | tuple[str, ...]):
+    """
+    Reusable FastAPI dependency for Role-Based Access Control (RBAC).
+    Enforces that the authenticated user possesses one of the allowed roles (admin, critic, viewer).
+    Raises HTTPException 403 Forbidden if the authenticated user's role is not authorized.
+    """
+    allowed_roles: set[str] = set()
+    for r in roles:
+        if isinstance(r, (list, tuple, set)):
+            for item in r:
+                allowed_roles.add(str(item).lower())
+        else:
+            allowed_roles.add(str(r).lower())
+
+    async def role_checker(
+        current_user: AuthenticatedUser = Depends(get_current_user),
+    ) -> AuthenticatedUser:
+        user_role = (current_user.role or "").lower()
+        if user_role not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Forbidden: insufficient role permissions",
+            )
+        return current_user
+
+    return role_checker
+
+
+

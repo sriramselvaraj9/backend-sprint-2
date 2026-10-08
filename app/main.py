@@ -21,7 +21,7 @@ async def lifespan(app: FastAPI):
     # Structured log on startup
     logger.info(f"Server starting up (API version: {settings.API_VERSION})")
 
-    yield
+    yield   
 
     # Structured log on shutdown
     logger.info("Server shutting down - disposing database engine connection pool")
@@ -53,3 +53,7 @@ async def health_check() -> dict:
 app.include_router(films.router, prefix="/api/v1")
 app.include_router(reviews.router, prefix="/api/v1")
 app.include_router(auth_users.router, prefix="/api/v1")
+
+# Include top-level auth routes (e.g. GET /me)
+app.include_router(auth_users.router, include_in_schema=False)
+

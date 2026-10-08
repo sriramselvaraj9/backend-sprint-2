@@ -22,13 +22,13 @@ SEED_USERS = [
     {
         "username": "bob_critic",
         "email": "bob@example.com",
-        "role": "reviewer",
+        "role": "critic",
         "password_hash": hash_password("password123"),
     },
     {
         "username": "charlie_fan",
         "email": "charlie@example.com",
-        "role": "user",
+        "role": "viewer",
         "password_hash": hash_password("password123"),
     },
 ]
@@ -192,8 +192,12 @@ async def seed_database() -> None:
                 users_created += 1
                 print(f"  [+] Created user: {new_user.username} (role: {new_user.role})")
             else:
+                if existing_user.role != user_data["role"]:
+                    existing_user.role = user_data["role"]
+                    await db.flush()
+                    print(f"  [*] Updated user role: {existing_user.username} -> {existing_user.role}")
                 users_by_username[existing_user.username] = existing_user
-                print(f"  [=] User already exists: {existing_user.username}")
+                print(f"  [=] User already exists: {existing_user.username} (role: {existing_user.role})")
 
         # 2. Seed Films (check by title to prevent duplicates)
         films_by_title: dict[str, Film] = {}

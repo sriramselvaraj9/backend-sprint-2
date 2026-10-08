@@ -129,9 +129,10 @@ class ReviewService:
         rating: int | None = None,
         body: str | None = None,
         update_data: ReviewUpdate | dict[str, Any] | None = None,
+        is_admin: bool = False,
     ) -> Review:
         """
-        Update a review enforcing Rule 2: Only the original reviewer can update.
+        Update a review enforcing Rule 2: Only the original reviewer or an admin can update.
         """
         target_review_id = uuid.UUID(str(review_id))
         logger.info(f"Attempting to update review {target_review_id}")
@@ -151,8 +152,8 @@ class ReviewService:
         elif isinstance(update_data, dict) and update_data.get("user_id") is not None:
             caller_id = uuid.UUID(str(update_data["user_id"]))
 
-        # 3. Rule 2 Check: Compare current user ID with review.user_id
-        if caller_id is not None and str(caller_id) != str(review.user_id):
+        # 3. Rule 2 Check: Compare current user ID with review.user_id unless caller is admin
+        if not is_admin and caller_id is not None and str(caller_id) != str(review.user_id):
             logger.warning(
                 f"Review update rejected: user {caller_id} is not original reviewer of review {target_review_id}"
             )
@@ -188,9 +189,11 @@ class ReviewService:
         self,
         review_id: uuid.UUID | str,
         current_user_id: uuid.UUID | str | None = None,
+        is_admin: bool = False,
     ) -> Review:
         """
         Delete a review by ID through ReviewDAO.
+        Enforces ownership: Only the original reviewer or an admin can delete.
         """
         target_review_id = uuid.UUID(str(review_id))
         logger.info(f"Deleting review {target_review_id}")
@@ -200,9 +203,12 @@ class ReviewService:
             logger.warning(f"Review deletion failed: Review {target_review_id} not found")
             raise ReviewNotFoundError(review_id=target_review_id)
 
-        if current_user_id is not None:
+        if not is_admin and current_user_id is not None:
             caller_id = uuid.UUID(str(current_user_id))
             if str(caller_id) != str(review.user_id):
+                logger.warning(
+                    f"Review deletion rejected: user {caller_id} is not original reviewer of review {target_review_id}"
+                )
                 raise ReviewUnauthorisedError(
                     review_id=target_review_id,
                     user_id=caller_id,

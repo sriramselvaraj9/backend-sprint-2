@@ -11,8 +11,9 @@ if TYPE_CHECKING:
     from app.models.review import Review
     from app.models.watchlist import Watchlist
 
+#SQLAlchemy ORM models represent database tables as Python classes
 
-class Film(Base):
+class Film(Base): 
     """
     SQLAlchemy 2.0 ORM model for Films.
     Represents movies available in the platform catalog.
