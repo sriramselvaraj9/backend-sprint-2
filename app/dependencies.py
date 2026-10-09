@@ -1,17 +1,20 @@
 import uuid
 from collections.abc import AsyncGenerator
 
+import redis.asyncio as redis
 from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import Settings, settings
+from app.cache.film_cache import FilmCache
+from app.core.config import Settings, settings
+from app.core.database import SessionLocal
+from app.core.redis import get_redis
 from app.core.security import decode_token
 from app.daos.film_dao import FilmDAO
 from app.daos.review_dao import ReviewDAO
 from app.daos.user_dao import UserDAO
-from app.database import SessionLocal
 from app.exceptions.domain import InvalidTokenError
 from app.handlers.auth_user_handler import AuthUserHandler
 from app.handlers.film_handler import FilmHandler
@@ -72,6 +75,18 @@ def get_trace_id(
 
 
 # ---------------------------------------------------------
+# Redis & Cache Dependencies
+# ---------------------------------------------------------
+def get_film_cache(
+    redis_conn: redis.Redis = Depends(get_redis),
+) -> FilmCache:
+    """
+    Provides a FilmCache instance with injected shared Redis client.
+    """
+    return FilmCache(redis_conn)
+
+
+# ---------------------------------------------------------
 # DAO Dependencies
 # ---------------------------------------------------------
 def get_film_dao(
@@ -107,11 +122,12 @@ def get_user_dao(
 def get_film_service(
     film_dao: FilmDAO = Depends(get_film_dao),
     review_dao: ReviewDAO = Depends(get_review_dao),
+    film_cache: FilmCache = Depends(get_film_cache),
 ) -> FilmService:
     """
-    Provides a FilmService instance with injected FilmDAO and ReviewDAO.
+    Provides a FilmService instance with injected FilmDAO, ReviewDAO, and FilmCache.
     """
-    return FilmService(film_dao=film_dao, review_dao=review_dao)
+    return FilmService(film_dao=film_dao, review_dao=review_dao, cache=film_cache)
 
 
 def get_review_service(
@@ -131,11 +147,12 @@ def get_review_service(
 
 def get_user_service(
     user_dao: UserDAO = Depends(get_user_dao),
+    redis_conn: redis.Redis = Depends(get_redis),
 ) -> UserService:
     """
-    Provides a UserService instance with injected UserDAO.
+    Provides a UserService instance with injected UserDAO and Redis client.
     """
-    return UserService(user_dao=user_dao)
+    return UserService(user_dao=user_dao, redis_client=redis_conn)
 
 
 # ---------------------------------------------------------
@@ -244,6 +261,3 @@ def require_role(*roles: str | list[str] | tuple[str, ...]):
         return current_user
 
     return role_checker
-
-
-

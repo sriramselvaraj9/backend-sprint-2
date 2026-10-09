@@ -39,8 +39,8 @@ class StructuredJsonFormatter(logging.Formatter):
         }
 
         req_id = get_current_request_id()
-        if not req_id and hasattr(record, "request_id"):
-            req_id = record.request_id
+        if not req_id:
+            req_id = getattr(record, "request_id", None)
 
         if req_id:
             log_data["request_id"] = req_id

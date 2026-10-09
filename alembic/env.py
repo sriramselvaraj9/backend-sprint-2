@@ -11,8 +11,8 @@ from alembic import context
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.config import settings
-from app.database import Base
+from app.core.config import settings
+from app.core.database import Base
 from app.models import Film, Review, User, Watchlist  # noqa: F401
 
 config = context.config

@@ -6,7 +6,7 @@ from sqlalchemy import select
 # Baseline Data Definitions
 # -----------------------------------------------------------------------------
 from app.core.security import hash_password
-from app.database import SessionLocal, engine
+from app.core.database import SessionLocal, engine
 from app.models.film import Film
 from app.models.review import Review
 from app.models.user import User
@@ -19,13 +19,13 @@ SEED_USERS = [
         "role": "admin",
         "password_hash": hash_password("password123"),
     },
-    {
+    { 
         "username": "bob_critic",
         "email": "bob@example.com",
         "role": "critic",
         "password_hash": hash_password("password123"),
     },
-    {
+    { 
         "username": "charlie_fan",
         "email": "charlie@example.com",
         "role": "viewer",

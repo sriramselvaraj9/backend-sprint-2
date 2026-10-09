@@ -4,8 +4,9 @@ from datetime import UTC, datetime
 
 from fastapi import FastAPI
 
-from app.config import settings
-from app.database import engine
+from app.core.config import settings
+from app.core.database import engine
+from app.core.redis import redis_client
 from app.exceptions.handlers import register_exception_handlers
 from app.logging_config import setup_logging
 from app.middlewares import request_trace_logging_middleware
@@ -21,11 +22,13 @@ async def lifespan(app: FastAPI):
     # Structured log on startup
     logger.info(f"Server starting up (API version: {settings.API_VERSION})")
 
-    yield   
+    yield
 
     # Structured log on shutdown
     logger.info("Server shutting down - disposing database engine connection pool")
     await engine.dispose()
+    logger.info("Server shutting down - closing Redis client connection pool")
+    await redis_client.aclose()
 
 
 app = FastAPI(
@@ -56,4 +59,3 @@ app.include_router(auth_users.router, prefix="/api/v1")
 
 # Include top-level auth routes (e.g. GET /me)
 app.include_router(auth_users.router, include_in_schema=False)
-

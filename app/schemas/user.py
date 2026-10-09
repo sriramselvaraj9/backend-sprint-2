@@ -114,5 +114,23 @@ class AdminStatsResponse(BaseSchema):
     total_films: int = Field(..., description="Total film count")
     total_reviews: int = Field(..., description="Total review count")
     average_rating: float | None = Field(default=None, description="Overall average rating across all reviews")
-    top_reviewer: str | None = Field(default=None, description="Username of the user who has submitted the most reviews")
+    top_reviewer: str | None = Field(
+        default=None, description="Username of the user who has submitted the most reviews"
+    )
 
+
+class LogoutRequest(BaseSchema):
+    """
+    Optional schema for logout request allowing explicit refresh token submission.
+    """
+
+    refresh_token: str | None = Field(default=None, description="Optional refresh token to revoke")
+
+
+class LogoutResponse(BaseSchema):
+    """
+    Schema for logout confirmation response.
+    """
+
+    message: str = Field(default="Successfully logged out", description="Logout confirmation message")
+    status: str = Field(default="success", description="Status indicator")

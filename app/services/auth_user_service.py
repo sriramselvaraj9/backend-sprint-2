@@ -1,10 +1,10 @@
 import logging
 import uuid
-from datetime import UTC, datetime, timedelta
 
+import redis.asyncio as redis
 from jose import JWTError
 
-from app.config import settings
+from app.core.config import settings
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -28,14 +28,17 @@ logger = logging.getLogger("user_service")
 class UserService:
     """
     Service layer for User and Authentication business operations.
-    Receives UserDAO; contains NO direct database queries.
+    Receives UserDAO and Redis client; coordinates DB persistence and Redis token lifecycle.
+    Contains NO direct database queries.
     """
 
     def __init__(
         self,
         user_dao: UserDAO,
+        redis_client: redis.Redis | None = None,
     ) -> None:
         self.user_dao = user_dao
+        self.redis_client = redis_client
 
     async def get_by_email(self, email: str) -> User | None:
         """
@@ -85,10 +88,13 @@ class UserService:
             role=user_data.role if hasattr(user_data, "role") and user_data.role else "viewer",
         )
         created_user = await self.user_dao.create(new_user)
-        logger.info(f"User '{created_user.username}' (ID: {created_user.id}, role: {created_user.role}) registered successfully")
+        logger.info(
+            f"User '{created_user.username}' (ID: {created_user.id}, role: {created_user.role}) registered successfully"
+        )
         return created_user
 
     async def login_user(self, credentials: LoginRequest) -> TokenResponse:
+
         logger.info(f"Login attempt for email: {credentials.email}")
         user = await self.user_dao.get_by_email(credentials.email)
         if user is None or not verify_password(credentials.password, user.password_hash):
@@ -112,6 +118,31 @@ class UserService:
             }
         )
 
+        # Store refresh token in Redis with TTL matching refresh token expiration
+        if self.redis_client is not None:
+            ttl_seconds = int(settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60)
+            try:
+                # Invalidate any previous token for this user so orphans don't accumulate
+                previous_token = await self.redis_client.get(f"user_refresh_token:{user.id}")
+                if previous_token:
+                    await self.redis_client.delete(f"refresh_token:{previous_token}")
+
+                # Store user ID string for O(1) lookup during refresh
+                await self.redis_client.set(
+                    f"refresh_token:{refresh_token}",
+                    str(user.id),
+                    ex=ttl_seconds,
+                )
+                # Store user mapping for session invalidation on logout
+                await self.redis_client.set(
+                    f"user_refresh_token:{user.id}",
+                    refresh_token,
+                    ex=ttl_seconds,
+                )
+                logger.info(f"Stored refresh token in Redis for user ID '{user.id}' (TTL: {ttl_seconds}s)")
+            except redis.RedisError as e:
+                logger.warning(f"Failed to store refresh token in Redis: {e}")
+
         logger.info(f"User '{user.username}' logged in successfully")
         return TokenResponse(
             access_token=access_token,
@@ -120,7 +151,13 @@ class UserService:
         )
 
     async def refresh_access_token(self, refresh_data: RefreshRequest) -> TokenResponse:
+        """
+        Validate refresh token (JWT validity + Redis existence) and issue a new access token.
+        Provides server-side revocation: if token is absent from Redis, refresh is rejected.
+        """
         token_str = refresh_data.refresh_token
+
+        # 1. Validate JWT structure and signature/expiration
         try:
             payload = decode_token(token_str)
         except JWTError:
@@ -141,12 +178,25 @@ class UserService:
         except ValueError:
             raise InvalidRefreshTokenError(message="Invalid refresh token: malformed user ID")
 
-        # Fetch current user state
+        # 2. Check Redis for server-side token existence (revocation check)
+        if self.redis_client is not None:
+            try:
+                stored_session = await self.redis_client.get(f"refresh_token:{token_str}")
+                if not stored_session:
+                    logger.warning(f"Refresh token rejected: not found in Redis for user ID {user_id}")
+                    raise InvalidRefreshTokenError(message="Invalid, expired, or revoked refresh token")
+            except InvalidRefreshTokenError:
+                raise
+            except redis.RedisError as e:
+                logger.warning(f"Redis error during refresh token validation: {e}")
+                raise InvalidRefreshTokenError(message="Unable to verify refresh token")
+
+        # 3. Fetch current user state from PostgreSQL
         user = await self.user_dao.get_by_id(user_id)
         if user is None:
             raise InvalidRefreshTokenError(message="User associated with refresh token no longer exists")
 
-        # Issue new access token
+        # 4. Issue new access token
         new_access_token = create_access_token(
             data={
                 "sub": str(user.id),
@@ -161,6 +211,36 @@ class UserService:
             access_token=new_access_token,
             token_type="bearer",
         )
+
+    async def logout_user(
+        self,
+        user_id: uuid.UUID,
+        refresh_token: str | None = None,
+    ) -> dict:
+        """
+        Log out user by deleting their refresh token from Redis, invalidating the session server-side.
+        """
+        logger.info(f"Logging out user ID: {user_id}")
+        if self.redis_client is not None:
+            try:
+                # If explicit refresh token was provided in request, delete it
+                if refresh_token:
+                    await self.redis_client.delete(f"refresh_token:{refresh_token}")
+
+                # Delete user-to-refresh-token mapping and corresponding refresh token
+                stored_token = await self.redis_client.get(f"user_refresh_token:{user_id}")
+                if stored_token:
+                    await self.redis_client.delete(f"refresh_token:{stored_token}")
+                    await self.redis_client.delete(f"user_refresh_token:{user_id}")
+
+                logger.info(f"Revoked refresh token in Redis for user ID: {user_id}")
+            except redis.RedisError as e:
+                logger.warning(f"Redis error during logout for user {user_id}: {e}")
+
+        return {
+            "message": "Successfully logged out",
+            "status": "success",
+        }
 
     async def get_me(self, user_id: uuid.UUID) -> User:
         """

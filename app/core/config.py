@@ -3,7 +3,7 @@ from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Path to the .env file in the project root
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 
 class Settings(BaseSettings):
@@ -11,13 +11,15 @@ class Settings(BaseSettings):
     Typed centralized application settings loaded from .env file.
     Missing required environment variables will cause startup validation failure.
     """
-    
+
     DATABASE_URL: str
     TOKEN_SECRET_KEY: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
     REFRESH_TOKEN_EXPIRE_DAYS: int
     ALLOWED_CORS_ORIGINS: str
     API_VERSION: str
+    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_CACHE_TTL: int = 60
 
     model_config = SettingsConfigDict(
         env_file=str(BASE_DIR / ".env"),

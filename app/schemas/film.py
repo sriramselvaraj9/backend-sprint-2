@@ -24,13 +24,24 @@ class FilmBase(BaseSchema):
             raise ValueError(f"release_year cannot be more than 5 years in the future (max {current_year + 5})")
         return value
 
+
 class FilmResponse(FilmBase):
-    """ 
+    """
     Schema for film responses.
     Inherits core film attributes from FilmBase, adds id and computed years_ago.
     """
 
     id: uuid.UUID = Field(..., description="Unique identifier of the film")
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def parse_id(cls, value: object) -> uuid.UUID | object:
+        if isinstance(value, str):
+            try:
+                return uuid.UUID(value)
+            except ValueError:
+                return value
+        return value
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -44,7 +55,6 @@ class FilmResponse(FilmBase):
 
 
 class FilmYearRange(BaseSchema):
-
     start_year: int = Field(..., description="Start release year")
     end_year: int = Field(..., description="End release year")
 
@@ -53,7 +63,6 @@ class FilmYearRange(BaseSchema):
         if self.start_year >= self.end_year:
             raise ValueError("start_year must be strictly less than end_year (start_year < end_year)")
         return self
-
 
 
 class FilmCreate(FilmBase):

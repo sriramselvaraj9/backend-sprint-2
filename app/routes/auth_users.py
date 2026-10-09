@@ -10,6 +10,8 @@ from app.schemas.user import (
     AdminStatsResponse,
     AuthenticatedUser,
     LoginRequest,
+    LogoutRequest,
+    LogoutResponse,
     RefreshRequest,
     TokenResponse,
     UserCreate,
@@ -54,7 +56,8 @@ async def login(
 ) -> TokenResponse:
     """
     Public login endpoint.
-    Authenticates email + password and returns access_token + refresh_token.
+    Authenticates email + password, returns access_token + refresh_token,
+    and stores refresh token in Redis with matching TTL.
     """
     return await handler.login(credentials)
 
@@ -67,9 +70,29 @@ async def refresh_token(
 ) -> TokenResponse:
     """
     Public token refresh endpoint.
-    Verifies refresh token, marks it as used, and issues a new access token.
+    Verifies JWT validity and server-side presence in Redis, then issues a new access token.
     """
     return await handler.refresh_token(refresh_data)
+
+
+# Protected Logout Endpoint: POST /api/v1/auth/logout & POST /logout
+@router.post("/auth/logout", response_model=LogoutResponse, summary="Logout")
+@router.post("/logout", response_model=LogoutResponse, summary="Logout", include_in_schema=False)
+async def logout(
+    logout_data: LogoutRequest | None = None,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    handler: AuthUserHandler = Depends(get_auth_user_handler), 
+) -> LogoutResponse:
+    """
+    Protected logout endpoint.
+    Requires a valid access token. Revokes the user's refresh token by deleting it from Redis.
+    """
+    refresh_token = logout_data.refresh_token if logout_data is not None else None
+    result = await handler.logout(user_id=current_user.id, refresh_token=refresh_token)
+    return LogoutResponse(
+        message=result.get("message", "Successfully logged out"),
+        status=result.get("status", "success"),
+    )
 
 
 # Protected Current User Profile Endpoint: GET /api/v1/me

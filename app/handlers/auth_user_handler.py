@@ -1,3 +1,5 @@
+import uuid
+
 from app.models.user import User
 from app.schemas.user import (
     AuthenticatedUser,
@@ -26,6 +28,9 @@ class AuthUserHandler:
 
     async def refresh_token(self, refresh_data: RefreshRequest) -> TokenResponse:
         return await self.service.refresh_access_token(refresh_data)
+
+    async def logout(self, user_id: uuid.UUID, refresh_token: str | None = None) -> dict:
+        return await self.service.logout_user(user_id=user_id, refresh_token=refresh_token)
 
     async def get_me(self, current_user: AuthenticatedUser) -> User:
         return await self.service.get_me(current_user.id)

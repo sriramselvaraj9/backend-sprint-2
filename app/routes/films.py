@@ -2,7 +2,7 @@ import uuid
 
 from fastapi import APIRouter, Depends
 
-from app.config import Settings
+from app.core.config import Settings
 from app.dependencies import (
     get_config,
     get_current_user,

@@ -5,15 +5,16 @@ from typing import TYPE_CHECKING
 from sqlalchemy import Boolean, DateTime, Integer, String, Uuid, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.database import Base
+from app.core.database import Base
 
 if TYPE_CHECKING:
     from app.models.review import Review
     from app.models.watchlist import Watchlist
 
-#SQLAlchemy ORM models represent database tables as Python classes
+# SQLAlchemy ORM models represent database tables as Python classes
 
-class Film(Base): 
+
+class Film(Base):
     """
     SQLAlchemy 2.0 ORM model for Films.
     Represents movies available in the platform catalog.

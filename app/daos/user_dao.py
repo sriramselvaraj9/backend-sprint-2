@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.film import Film
@@ -96,4 +96,3 @@ class UserDAO:
             "average_rating": average_rating,
             "top_reviewer": top_reviewer,
         }
-
