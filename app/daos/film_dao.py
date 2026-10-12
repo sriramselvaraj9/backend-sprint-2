@@ -1,10 +1,11 @@
 import uuid
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.film import Film
+from app.models.review import Review
 from app.schemas.film import FilmCreate, FilmResponse, FilmYearRange
 
 
@@ -65,6 +66,46 @@ class FilmDAO:
 
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def search_films_with_ratings(
+        self,
+        query: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Search active films matching an optional case-insensitive title query,
+        returning film details alongside calculated average ratings and review counts.
+        Uses a single efficient query with LEFT OUTER JOIN and GROUP BY.
+        """
+        stmt = (
+            select(
+                Film,
+                func.avg(Review.rating).label("avg_rating"),
+                func.count(Review.id).label("review_count"),
+            )
+            .outerjoin(Review, (Review.film_id == Film.id))
+            .where(Film.is_active == True)
+        )
+
+        if query is not None and query.strip():
+            stmt = stmt.where(Film.title.ilike(f"%{query.strip()}%"))
+
+        stmt = stmt.group_by(Film.id).order_by(Film.title.asc())
+
+        result = await self.session.execute(stmt)
+        rows = result.all()
+
+        results: list[dict[str, Any]] = []
+        for film, avg_rating, review_count in rows:
+            results.append({
+                "id": film.id,
+                "title": film.title,
+                "release_year": film.release_year,
+                "genre": film.genre,
+                "director": film.director,
+                "average_rating": round(float(avg_rating), 1) if avg_rating is not None else None,
+                "review_count": int(review_count) if review_count is not None else 0,
+            })
+        return results
 
     async def create(self, film: Film) -> Film:
         """
@@ -251,3 +292,12 @@ async def soft_delete_film(
     db: AsyncSession,
 ) -> bool:
     return await FilmDAO.soft_delete_film(db, film_id)
+
+
+async def search_films(
+    db: AsyncSession,
+    query: str | None = None,
+) -> list[dict[str, Any]]:
+    dao = FilmDAO(db)
+    return await dao.search_films_with_ratings(query=query)
+

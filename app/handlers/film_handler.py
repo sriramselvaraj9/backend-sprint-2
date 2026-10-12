@@ -27,6 +27,9 @@ class FilmHandler:
             "films": films_data,
         }
 
+    async def search_films_with_ratings(self, query: str | None = None) -> list[dict[str, Any]]:
+        return await self.service.search_films_with_ratings(query=query)
+
     async def get_film_by_id(self, film_id: uuid.UUID | str) -> dict:
         film = await self.service.get_film_by_id(film_id)
         return {

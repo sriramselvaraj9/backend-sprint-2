@@ -97,6 +97,15 @@ class FilmService:
 
         return films
 
+    async def search_films_with_ratings(self, query: str | None = None) -> list[dict[str, Any]]:
+        """
+        Search films matching an optional query title and calculate their average ratings.
+        Normalizes search term and coordinates data retrieval via FilmDAO.
+        """
+        clean_query = query.strip() if query else None
+        logger.info(f"Searching films with ratings query='{clean_query}'")
+        return await self.film_dao.search_films_with_ratings(query=clean_query)
+
     async def create_film(self, film_data: FilmCreate) -> Film:
         """
         Build a Film ORM instance, persist it through FilmDAO,

@@ -1,0 +1,44 @@
+{% if films %}
+    <div class="results-summary">
+        <span>Found <strong>{{ films|length }}</strong> film{{ "s" if films|length != 1 else "" }}{% if query %}&nbsp;matching &ldquo;<span class="highlight">{{ query }}</span>&rdquo;{% endif %}</span>
+    </div>
+    <div class="film-grid">
+        {% for film in films %}
+        <article class="film-card" id="film-{{ film.id }}">
+            <div>
+                <div class="film-card-header">
+                    <h2 class="film-title">{{ film.title }}</h2>
+                    <span class="film-year">{{ film.release_year }}</span>
+                </div>
+                <div class="film-meta">
+                    <span class="genre-badge">{{ film.genre }}</span>
+                    <p class="film-director">Directed by <strong>{{ film.director }}</strong></p>
+                </div>
+            </div>
+            
+            {% if film.average_rating is not none %}
+                <div class="rating-box rated" aria-label="Average rating: {{ "%.1f"|format(film.average_rating) }} out of 10">
+                    <div class="rating-content"> 
+                        <span class="star-icon">★</span>
+                        <span class="rating-value">{{ "%.1f"|format(film.average_rating) }} / 10</span>
+                    </div>
+                    {% if film.review_count %}
+                        <span class="review-count">({{ film.review_count }} review{{ "s" if film.review_count != 1 else "" }})</span>
+                    {% endif %}
+                </div>
+            {% else %}
+                <div class="rating-box unrated" aria-label="Not rated">
+                    <span class="rating-value">Not rated</span>
+                    <span class="unrated-sub">No reviews yet</span>
+                </div>
+            {% endif %}
+        </article>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="no-results-state">
+        <div class="empty-icon">🔍</div>
+        <h2>No films found</h2>
+        <p>{% if query %}No active films match &ldquo;<span class="highlight">{{ query }}</span>&rdquo;. Try searching for another title.{% else %}No active films currently available in the catalogue.{% endif %}</p>
+    </div>
+{% endif %}

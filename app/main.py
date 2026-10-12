@@ -10,7 +10,7 @@ from app.core.redis import redis_client
 from app.exceptions.handlers import register_exception_handlers
 from app.logging_config import setup_logging
 from app.middlewares import request_trace_logging_middleware
-from app.routes import auth_users, films, reviews
+from app.routes import auth_users, films, reviews, ui
 
 # Configure application-wide structured JSON logging
 setup_logging()
@@ -56,6 +56,9 @@ async def health_check() -> dict:
 app.include_router(films.router, prefix="/api/v1")
 app.include_router(reviews.router, prefix="/api/v1")
 app.include_router(auth_users.router, prefix="/api/v1")
+
+# Include server-rendered UI Router (separate from /api/v1 JSON endpoints)
+app.include_router(ui.router, prefix="/ui")
 
 # Include top-level auth routes (e.g. GET /me)
 app.include_router(auth_users.router, include_in_schema=False)
