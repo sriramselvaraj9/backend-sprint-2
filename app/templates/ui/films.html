@@ -102,6 +102,7 @@
             letter-spacing: -0.025em;
             background: linear-gradient(135deg, #ffffff 40%, #a5b4fc 100%);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
             margin-bottom: 0.75rem;
         }
@@ -190,8 +191,7 @@
             min-height: 240px;
         }
 
-        /* Initial prompt & empty state */
-        .initial-prompt,
+        /* Empty state */
         .no-results-state {
             text-align: center;
             padding: 4rem 1.5rem;
@@ -203,7 +203,6 @@
             box-shadow: var(--shadow-card);
         }
 
-        .prompt-icon,
         .empty-icon {
             font-size: 2.75rem;
             margin-bottom: 1rem;
@@ -211,7 +210,6 @@
             filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
         }
 
-        .initial-prompt h2,
         .no-results-state h2 {
             font-family: var(--font-display);
             font-size: 1.35rem;
@@ -220,7 +218,6 @@
             font-weight: 700;
         }
 
-        .initial-prompt p,
         .no-results-state p {
             font-size: 0.95rem;
             color: var(--text-secondary);
@@ -229,18 +226,6 @@
         .highlight {
             color: #c7d2fe;
             font-weight: 600;
-        }
-
-        /* Summary header */
-        .results-summary {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: var(--text-secondary);
-            margin-bottom: 1.25rem;
-            padding-left: 0.25rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
         }
 
         /* Film cards grid */
@@ -422,7 +407,7 @@
                 <span>FastAPI + Jinja2 + htmx</span>
             </div>
             <h1>Film Search</h1>
-            <p class="subtitle">Search and discover films across the platform in real time with dynamic server-rendered HTML fragments.</p>
+            <p class="subtitle">Search and discover films across the platform in real time. Start typing to filter films dynamically.</p>
         </header>
 
         <!-- Search Input with htmx attributes -->
@@ -450,13 +435,13 @@
         </section>
 
         <!-- Dynamic Results Container -->
-        <main id="film-results" class="results-container">
-            <div class="initial-prompt">
-                <div class="prompt-icon">🎬</div>
-                <h2>Start typing to search</h2>
-                <p>Type any film title above to search the catalogue in real time.</p>
-            </div>
-        </main>
+        <main 
+            id="film-results" 
+            class="results-container"
+            hx-get="/ui/films/search" 
+            hx-trigger="load" 
+            hx-swap="innerHTML"
+        ></main>
     </div>
 </body>
 </html>

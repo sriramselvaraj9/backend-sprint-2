@@ -67,15 +67,17 @@ class FilmDAO:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def search_films_with_ratings(
+    async def search_films_by_title(
         self,
         query: str | None = None,
+        title: str | None = None,
     ) -> list[dict[str, Any]]:
         """
         Search active films matching an optional case-insensitive title query,
         returning film details alongside calculated average ratings and review counts.
         Uses a single efficient query with LEFT OUTER JOIN and GROUP BY.
         """
+        search_term = title if title is not None else query
         stmt = (
             select(
                 Film,
@@ -86,8 +88,8 @@ class FilmDAO:
             .where(Film.is_active == True)
         )
 
-        if query is not None and query.strip():
-            stmt = stmt.where(Film.title.ilike(f"%{query.strip()}%"))
+        if search_term is not None and search_term.strip():
+            stmt = stmt.where(Film.title.ilike(f"%{search_term.strip()}%"))
 
         stmt = stmt.group_by(Film.id).order_by(Film.title.asc())
 
@@ -294,10 +296,15 @@ async def soft_delete_film(
     return await FilmDAO.soft_delete_film(db, film_id)
 
 
-async def search_films(
+async def search_films_by_title(
     db: AsyncSession,
     query: str | None = None,
+    title: str | None = None,
 ) -> list[dict[str, Any]]:
     dao = FilmDAO(db)
-    return await dao.search_films_with_ratings(query=query)
+    return await dao.search_films_by_title(query=query, title=title)
+
+
+# Standalone alias
+search_films = search_films_by_title
 

@@ -30,7 +30,6 @@ async def get_films_page(
     return templates.TemplateResponse(
         request=request,
         name="ui/films.html",
-        context={"request": request},
     )
 
 
@@ -48,14 +47,13 @@ async def search_films_fragment(
     search_term = q.strip() if q is not None else None 
     logger.info(f"Rendering film search fragment for query: '{search_term}'")
 
-    films = await film_service.search_films_with_ratings(query=search_term)
+    films = await film_service.search_films_by_title(title=search_term)
 
     return templates.TemplateResponse(
-        request=request, # provides the current http requests
-        name="ui/partials/film_results.html",   # the path to the template file.
+        request=request, 
+        name="ui/partials/film_results.html", 
         context={
-            "request": request, # provides the current HTTP request object to the template.
-            "films": films, # list of film objects to display.
-            "query": search_term or "", # current search query.
+            "films": films, 
+            "query": search_term or "", 
         },
     )
