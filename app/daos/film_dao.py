@@ -106,7 +106,7 @@ class FilmDAO:
     ) -> list[Film]:
         """
         Return active films matching optional filters with deterministic ordering.
-        Supports offset-based pagination (.limit(), .offset()) and cursor-based pagination (Film.id > cursor_id).
+        Supports offset-based pagination (.limit(), .offset()) and cursor-based pagination (Film.id >= cursor_id).
         Ordering is deterministic on Film.id.asc().
         """
         conditions = self._build_film_filter_conditions(
@@ -118,7 +118,7 @@ class FilmDAO:
             max_year=max_year,
         )
         if cursor_id is not None:
-            conditions.append(Film.id > cursor_id)
+            conditions.append(Film.id >= cursor_id)
 
         stmt = select(Film).where(*conditions).order_by(Film.id.asc())
 

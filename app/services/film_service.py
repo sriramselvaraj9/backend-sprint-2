@@ -1,45 +1,23 @@
-import base64
 import logging
 import uuid
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 import redis.asyncio as redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.cache.film_cache import FilmCache
+from app.core.pagination import decode_cursor, encode_cursor
 from app.daos.film_dao import FilmDAO
 from app.daos.review_dao import ReviewDAO
 from app.exceptions.domain import (
     FilmHasActiveReviewsError,
     FilmNotFoundError,
-    InvalidCursorError,
 )
 from app.models.film import Film
 from app.schemas.film import FilmCreate, FilmResponse, FilmYearRange
 
 logger = logging.getLogger("film_service")
-
-
-def encode_cursor(film_id: uuid.UUID | str) -> str:
-    """Encode film UUID into an opaque URL-safe base64 string cursor."""
-    return base64.urlsafe_b64encode(str(film_id).encode("utf-8")).decode("utf-8")
-
-
-def decode_cursor(cursor_str: str) -> uuid.UUID:
-    """
-    Decode an opaque cursor into a film UUID.
-    Raises InvalidCursorError (HTTP 400) if malformed.
-    """
-    if not cursor_str or not isinstance(cursor_str, str):
-        raise InvalidCursorError(message="Cursor cannot be empty")
-    try:
-        try:
-            raw = base64.urlsafe_b64decode(cursor_str.encode("utf-8")).decode("utf-8")
-            return uuid.UUID(raw)
-        except Exception:
-            return uuid.UUID(cursor_str)
-    except Exception as e:
-        raise InvalidCursorError(message=f"Invalid pagination cursor: '{cursor_str}'") from e
 
 
 
@@ -109,8 +87,9 @@ class FilmService:
         # Normalize Filters
         effective_from_year = from_year if from_year is not None else min_year
         effective_to_year = to_year if to_year is not None else max_year
+
         offset = (page - 1) * page_size #Offset means how many records to skip in the database before returning the requested page
- 
+  
         cache_key = self.cache.build_key(
             genre=genre,
             from_year=effective_from_year,
@@ -134,7 +113,7 @@ class FilmService:
             next_cursor = None
             if (offset + len(cached_films)) < cached_total and len(cached_films) > 0:
                 next_cursor = encode_cursor(cached_films[-1].id)
-            return cached_films, cached_total, next_cursor
+            return cached_films, cached_total, next_cursor 
 
         logger.info(f"Redis cache MISS for paginated films (key: '{cache_key}'). Querying database.")
         films = await self.film_dao.list_films(
@@ -174,7 +153,7 @@ class FilmService:
     ) -> tuple[Sequence[Film | FilmResponse], str | None]:
         """
         List active films using cursor-based pagination.
-        Accepts optional opaque cursor, decodes to UUID, applies Film.id > cursor_id,
+        Accepts optional opaque cursor, decodes to UUID, applies Film.id >= cursor_id,
         and fetches page_size + 1 records to determine next_cursor.
         """
         effective_from_year = from_year if from_year is not None else min_year
@@ -190,7 +169,7 @@ class FilmService:
             to_year=effective_to_year,
             director=director,
             page_size=page_size,
-            cursor=cursor.strip() if cursor and cursor.strip() else "start",
+            cursor=cursor.strip() if cursor and cursor.strip() else "start", #Representing the First Page ("start")
         )
 
         cached = await self.cache.get_cursor(cache_key)
@@ -210,7 +189,7 @@ class FilmService:
 
         if len(raw_films) > page_size:
             films = raw_films[:page_size]
-            next_cursor = encode_cursor(films[-1].id)
+            next_cursor = encode_cursor(raw_films[page_size].id)  # 4th film (first film of the next page)
         else:
             films = raw_films
             next_cursor = None

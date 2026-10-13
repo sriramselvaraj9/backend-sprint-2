@@ -47,12 +47,7 @@ class ReviewDAO:
         limit: int | None = None,
         offset: int | None = None,
     ) -> list[Review]:
-        """
-        Get reviews for the given active film ordered by most recent first with unique tie-breaker (id).
-        Only reviews for active (non-soft-deleted) films are returned.
-        Eager-loads related film and user in a single database round trip using joinedload().
-        Applies .limit() and .offset() at database level when provided.
-        """
+        
         stmt = (
             select(Review)
             .join(Review.film)
