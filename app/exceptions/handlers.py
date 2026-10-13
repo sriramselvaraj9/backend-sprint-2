@@ -9,6 +9,7 @@ from app.exceptions.domain import (
     FilmHasActiveReviewsError,
     FilmNotFoundError,
     InvalidCredentialsError,
+    InvalidCursorError,
     InvalidRefreshTokenError,
     InvalidTokenError,
     ReviewAlreadyExistsError,
@@ -34,6 +35,7 @@ DOMAIN_STATUS_MAP: dict[type[Exception], int] = {
     InvalidCredentialsError: status.HTTP_401_UNAUTHORIZED,
     InvalidTokenError: status.HTTP_401_UNAUTHORIZED,
     InvalidRefreshTokenError: status.HTTP_401_UNAUTHORIZED,
+    InvalidCursorError: status.HTTP_400_BAD_REQUEST,
 }
 
 

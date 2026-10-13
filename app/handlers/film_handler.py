@@ -19,12 +19,67 @@ class FilmHandler:
     def __init__(self, service: FilmService) -> None:
         self.service = service
 
-    async def get_all_films(self, genre: str | None = None) -> dict:
-        films = await self.service.list_films(genre=genre)
+    async def get_all_films(
+        self,
+        page: int = 1,
+        page_size: int = 10,
+        cursor: str | None = None,
+        mode: str | None = None,
+        genre: str | None = None,
+        from_year: int | None = None,
+        to_year: int | None = None,
+        director: str | None = None,
+    ) -> dict:
+        is_cursor_mode = (cursor is not None and cursor.strip() != "") or mode == "cursor"
+        if is_cursor_mode:
+            return await self.get_films_cursor(
+                cursor=cursor,
+                page_size=page_size,
+                genre=genre,
+                from_year=from_year,
+                to_year=to_year,
+                director=director,
+            )
+
+        films, total, next_cursor = await self.service.list_films_paginated(
+            page=page,
+            page_size=page_size,
+            genre=genre,
+            from_year=from_year,
+            to_year=to_year,
+            director=director,
+        )
         films_data = [FilmResponse.model_validate(f).model_dump() for f in films]
         return {
-            "message": "Films fetched successfully",
-            "films": films_data,
+            "page": page,
+            "page_size": page_size,
+            "total": total,
+            "items": films_data,
+        }
+
+    async def get_films_cursor(
+        self,
+        cursor: str | None = None,
+        page_size: int = 10,
+        genre: str | None = None,
+        from_year: int | None = None,
+        to_year: int | None = None,
+        director: str | None = None,
+    ) -> dict:
+        effective_cursor = cursor.strip() if (cursor is not None and cursor.strip() != "") else None
+        films, next_cursor = await self.service.list_films_cursor(
+            cursor=effective_cursor,
+            page_size=page_size,
+            genre=genre,
+            from_year=from_year,
+            to_year=to_year,
+            director=director,
+        )
+        films_data = [FilmResponse.model_validate(f).model_dump() for f in films]
+        return {
+            "items": films_data,
+            "next_cursor": next_cursor,
+            "page_size": page_size,
         }
 
     async def search_films_by_title(

@@ -1,6 +1,7 @@
+import base64
 import logging
 import uuid
-from typing import Any
+from typing import Any, Sequence
 
 import redis.asyncio as redis
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,11 +12,35 @@ from app.daos.review_dao import ReviewDAO
 from app.exceptions.domain import (
     FilmHasActiveReviewsError,
     FilmNotFoundError,
+    InvalidCursorError,
 )
 from app.models.film import Film
 from app.schemas.film import FilmCreate, FilmResponse, FilmYearRange
 
 logger = logging.getLogger("film_service")
+
+
+def encode_cursor(film_id: uuid.UUID | str) -> str:
+    """Encode film UUID into an opaque URL-safe base64 string cursor."""
+    return base64.urlsafe_b64encode(str(film_id).encode("utf-8")).decode("utf-8")
+
+
+def decode_cursor(cursor_str: str) -> uuid.UUID:
+    """
+    Decode an opaque cursor into a film UUID.
+    Raises InvalidCursorError (HTTP 400) if malformed.
+    """
+    if not cursor_str or not isinstance(cursor_str, str):
+        raise InvalidCursorError(message="Cursor cannot be empty")
+    try:
+        try:
+            raw = base64.urlsafe_b64decode(cursor_str.encode("utf-8")).decode("utf-8")
+            return uuid.UUID(raw)
+        except Exception:
+            return uuid.UUID(cursor_str)
+    except Exception as e:
+        raise InvalidCursorError(message=f"Invalid pagination cursor: '{cursor_str}'") from e
+
 
 
 class FilmService:
@@ -69,27 +94,156 @@ class FilmService:
             raise FilmNotFoundError(film_id=film_id)
         return film
 
+    async def list_films_paginated(
+        self,
+        page: int = 1,
+        page_size: int = 10,
+        genre: str | None = None,
+        from_year: int | None = None,
+        to_year: int | None = None,
+        director: str | None = None,
+        min_year: int | None = None,
+        max_year: int | None = None,
+    ) -> tuple[Sequence[Film | FilmResponse], int, str | None]:
+        
+        # Normalize Filters
+        effective_from_year = from_year if from_year is not None else min_year
+        effective_to_year = to_year if to_year is not None else max_year
+        offset = (page - 1) * page_size #Offset means how many records to skip in the database before returning the requested page
+ 
+        cache_key = self.cache.build_key(
+            genre=genre,
+            from_year=effective_from_year,
+            to_year=effective_to_year,
+            director=director,
+            page=page,
+            page_size=page_size,
+        )
+        count_key = self.cache.build_count_key(
+            genre=genre,
+            from_year=effective_from_year,
+            to_year=effective_to_year,
+            director=director,
+        )
+
+        cached_films = await self.cache.get(cache_key)
+        cached_total = await self.cache.get_count(count_key)
+
+        if cached_films is not None and cached_total is not None:
+            logger.info(f"Redis cache HIT for paginated films (key: '{cache_key}', count: {cached_total})")
+            next_cursor = None
+            if (offset + len(cached_films)) < cached_total and len(cached_films) > 0:
+                next_cursor = encode_cursor(cached_films[-1].id)
+            return cached_films, cached_total, next_cursor
+
+        logger.info(f"Redis cache MISS for paginated films (key: '{cache_key}'). Querying database.")
+        films = await self.film_dao.list_films(
+            genre=genre,
+            from_year=effective_from_year,
+            to_year=effective_to_year,
+            director=director,
+            limit=page_size,
+            offset=offset,
+        )
+        total = await self.film_dao.count_films(
+            genre=genre,
+            from_year=effective_from_year,
+            to_year=effective_to_year,
+            director=director,
+        )
+
+        await self.cache.set(cache_key, films)
+        await self.cache.set_count(count_key, total)
+
+        next_cursor = None
+        if (offset + len(films)) < total and len(films) > 0:
+            next_cursor = encode_cursor(films[-1].id)
+
+        return films, total, next_cursor
+
+    async def list_films_cursor(
+        self,
+        cursor: str | None = None,
+        page_size: int = 10,
+        genre: str | None = None,
+        from_year: int | None = None,
+        to_year: int | None = None,
+        director: str | None = None,
+        min_year: int | None = None,
+        max_year: int | None = None,
+    ) -> tuple[Sequence[Film | FilmResponse], str | None]:
+        """
+        List active films using cursor-based pagination.
+        Accepts optional opaque cursor, decodes to UUID, applies Film.id > cursor_id,
+        and fetches page_size + 1 records to determine next_cursor.
+        """
+        effective_from_year = from_year if from_year is not None else min_year
+        effective_to_year = to_year if to_year is not None else max_year
+
+        cursor_id: uuid.UUID | None = None
+        if cursor and cursor.strip():
+            cursor_id = decode_cursor(cursor.strip())
+
+        cache_key = self.cache.build_key(
+            genre=genre,
+            from_year=effective_from_year,
+            to_year=effective_to_year,
+            director=director,
+            page_size=page_size,
+            cursor=cursor.strip() if cursor and cursor.strip() else "start",
+        )
+
+        cached = await self.cache.get_cursor(cache_key)
+        if cached is not None:
+            cached_films, cached_next_cursor = cached
+            return cached_films, cached_next_cursor
+
+        # Fetch page_size + 1 to determine if next page exists
+        raw_films = await self.film_dao.list_films(
+            genre=genre,
+            from_year=effective_from_year,
+            to_year=effective_to_year,
+            director=director,
+            limit=page_size + 1,
+            cursor_id=cursor_id,
+        )
+
+        if len(raw_films) > page_size:
+            films = raw_films[:page_size]
+            next_cursor = encode_cursor(films[-1].id)
+        else:
+            films = raw_films
+            next_cursor = None
+
+        await self.cache.set_cursor(cache_key, films, next_cursor)
+        return films, next_cursor
+
     async def list_films(
         self,
         genre: str | None = None,
         min_year: int | None = None,
         max_year: int | None = None,
+        from_year: int | None = None,
+        to_year: int | None = None,
+        director: str | None = None,
     ) -> list[Any]:
-        
-        cache_key = self.cache.build_key(genre=genre, min_year=min_year, max_year=max_year)
-        logger.info(f"Listing films with filters: genre={genre}, min_year={min_year}, max_year={max_year}")
+        effective_from_year = from_year if from_year is not None else min_year
+        effective_to_year = to_year if to_year is not None else max_year
+        cache_key = self.cache.build_key(genre=genre, min_year=effective_from_year, max_year=effective_to_year, director=director)
+        logger.info(f"Listing films with filters: genre={genre}, min_year={effective_from_year}, max_year={effective_to_year}, director={director}")
 
         # 1. Check FilmCache
         cached = await self.cache.get(cache_key)
         if cached is not None:
             return cached
- 
+
         # 2. Cache MISS: Query PostgreSQL through FilmDAO
         logger.info(f"Cache MISS for key: '{cache_key}'. Querying PostgreSQL via FilmDAO.")
         films = await self.film_dao.list_films(
             genre=genre,
-            min_year=min_year,
-            max_year=max_year,
+            from_year=effective_from_year,
+            to_year=effective_to_year,
+            director=director,
         )
 
         # 3. Store in Redis via FilmCache with TTL

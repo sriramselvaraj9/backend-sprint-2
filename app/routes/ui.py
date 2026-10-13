@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-from app.dependencies import get_film_service
+from app.dependencies import get_film_service, http_bearer_scheme
 from app.services.film_service import FilmService
 
 logger = logging.getLogger("ui_router")
@@ -14,7 +14,7 @@ logger = logging.getLogger("ui_router")
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
-router = APIRouter(tags=["UI"])
+router = APIRouter(tags=["UI"], dependencies=[Depends(http_bearer_scheme)])
 
 
 @router.get("/films", response_class=HTMLResponse)

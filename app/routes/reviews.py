@@ -1,4 +1,5 @@
 import uuid
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, Query
 
@@ -8,6 +9,7 @@ from app.dependencies import (
     require_role,
 )
 from app.handlers.review_handler import ReviewHandler
+from app.schemas.common import PaginationParams
 from app.schemas.review import ReviewCreate, ReviewResponse, ReviewUpdate
 from app.schemas.user import AuthenticatedUser
 
@@ -17,14 +19,20 @@ router = APIRouter(tags=["Reviews"])
 @router.get("/films/{film_id}/reviews")
 async def get_film_reviews(
     film_id: uuid.UUID,
+    pagination: PaginationParams = Depends(),
     current_user: AuthenticatedUser = Depends(get_current_user),
     review_handler: ReviewHandler = Depends(get_review_handler),
 ) -> dict:
     """
     Retrieve reviews for a specific active film in a single database round trip.
+    Supports offset-based pagination (page, page_size).
     Accessible to Admin, Critic, and Viewer.
     """
-    return await review_handler.get_film_reviews(film_id)
+    return await review_handler.get_film_reviews(
+        film_id=film_id,
+        page=pagination.page,
+        page_size=pagination.page_size,
+    )
 
 
 @router.post("/films/{film_id}/reviews", response_model=ReviewResponse)

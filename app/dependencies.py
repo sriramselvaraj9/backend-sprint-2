@@ -2,7 +2,7 @@ import uuid
 from collections.abc import AsyncGenerator
 
 import redis.asyncio as redis
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -189,18 +189,20 @@ def get_auth_user_handler(
 # Authentication Dependency
 # ---------------------------------------------------------
 async def get_current_user(
+    request: Request,
     auth_credentials: HTTPAuthorizationCredentials | None = Depends(http_bearer_scheme),
-    authorization: str | None = Header(default=None, alias="Authorization"),
 ) -> AuthenticatedUser:
 
     token: str | None = None
     if auth_credentials is not None:
         token = auth_credentials.credentials
-    elif authorization:
-        parts = authorization.split()
-        if len(parts) != 2 or parts[0].lower() != "bearer":
-            raise InvalidTokenError(message="Invalid authorization header format. Expected 'Bearer <token>'")
-        token = parts[1]
+    else:
+        raw_authorization = request.headers.get("Authorization")
+        if raw_authorization:
+            parts = raw_authorization.split()
+            if len(parts) != 2 or parts[0].lower() != "bearer":
+                raise InvalidTokenError(message="Invalid authorization header format. Expected 'Bearer <token>'")
+            token = parts[1]
 
     if not token:
         raise InvalidTokenError(message="Authorization header is required")

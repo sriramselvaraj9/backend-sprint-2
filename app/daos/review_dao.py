@@ -29,11 +29,29 @@ class ReviewDAO:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none() is not None
 
-    async def list_by_film(self, film_id: uuid.UUID) -> list[Review]:
+    async def count_by_film(self, film_id: uuid.UUID) -> int:
         """
-        Get all reviews for the given active film ordered by most recent first.
+        Count total reviews for the given active film.
+        """
+        stmt = (
+            select(func.count(Review.id))
+            .join(Review.film)
+            .where(Review.film_id == film_id, Film.is_active == True)
+        )
+        result = await self.session.execute(stmt)
+        return int(result.scalar_one() or 0)
+
+    async def list_by_film(
+        self,
+        film_id: uuid.UUID,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> list[Review]:
+        """
+        Get reviews for the given active film ordered by most recent first with unique tie-breaker (id).
         Only reviews for active (non-soft-deleted) films are returned.
-        Uses select(), order_by(Review.created_at.desc()), and scalars().all().
+        Eager-loads related film and user in a single database round trip using joinedload().
+        Applies .limit() and .offset() at database level when provided.
         """
         stmt = (
             select(Review)
@@ -43,8 +61,13 @@ class ReviewDAO:
                 joinedload(Review.user),
             )
             .where(Review.film_id == film_id, Film.is_active == True)
-            .order_by(Review.created_at.desc())
+            .order_by(Review.created_at.desc(), Review.id.desc())
         )
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        if offset is not None:
+            stmt = stmt.offset(offset)
+
         result = await self.session.execute(stmt)
         return list(result.scalars().unique().all())
 

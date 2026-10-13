@@ -38,31 +38,94 @@ class FilmDAO:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
+    def _build_film_filter_conditions(
+        self,
+        genre: str | None = None,
+        from_year: int | None = None,
+        to_year: int | None = None,
+        director: str | None = None,
+        min_year: int | None = None,
+        max_year: int | None = None,
+    ) -> list[Any]:
+        conditions = [Film.is_active == True]
+
+        if genre is not None and genre.strip():
+            # Exact match (case-insensitive for reliability)
+            conditions.append(func.lower(Film.genre) == genre.strip().lower())
+
+        effective_from_year = from_year if from_year is not None else min_year
+        if effective_from_year is not None:
+            conditions.append(Film.release_year >= effective_from_year)
+
+        effective_to_year = to_year if to_year is not None else max_year
+        if effective_to_year is not None:
+            conditions.append(Film.release_year <= effective_to_year)
+
+        if director is not None and director.strip():
+            # Case-insensitive partial match
+            conditions.append(Film.director.ilike(f"%{director.strip()}%"))
+
+        return conditions
+
+    async def count_films(
+        self,
+        genre: str | None = None,
+        from_year: int | None = None,
+        to_year: int | None = None,
+        director: str | None = None,
+        min_year: int | None = None,
+        max_year: int | None = None,
+    ) -> int:
+        """
+        Count total active films matching the provided filters.
+        Applies the exact same WHERE conditions as list_films.
+        """
+        conditions = self._build_film_filter_conditions(
+            genre=genre,
+            from_year=from_year,
+            to_year=to_year,
+            director=director,
+            min_year=min_year,
+            max_year=max_year,
+        )
+        stmt = select(func.count(Film.id)).where(*conditions)
+        result = await self.session.execute(stmt)
+        return int(result.scalar_one() or 0)
+
     async def list_films(
         self,
         genre: str | None = None,
+        from_year: int | None = None,
+        to_year: int | None = None,
+        director: str | None = None,
         min_year: int | None = None,
         max_year: int | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        cursor_id: uuid.UUID | None = None,
     ) -> list[Film]:
         """
-        Return all active films.
-        Supports optional filtering:
-        - genre
-        - minimum release year
-        - maximum release year
-        Filters are applied only when provided.
-        Uses result.scalars().all().
+        Return active films matching optional filters with deterministic ordering.
+        Supports offset-based pagination (.limit(), .offset()) and cursor-based pagination (Film.id > cursor_id).
+        Ordering is deterministic on Film.id.asc().
         """
-        stmt = select(Film).where(Film.is_active == True)
+        conditions = self._build_film_filter_conditions(
+            genre=genre,
+            from_year=from_year,
+            to_year=to_year,
+            director=director,
+            min_year=min_year,
+            max_year=max_year,
+        )
+        if cursor_id is not None:
+            conditions.append(Film.id > cursor_id)
 
-        if genre is not None and genre.strip():
-            stmt = stmt.where(Film.genre.ilike(f"%{genre.strip()}%"))
+        stmt = select(Film).where(*conditions).order_by(Film.id.asc())
 
-        if min_year is not None:
-            stmt = stmt.where(Film.release_year >= min_year)
-
-        if max_year is not None:
-            stmt = stmt.where(Film.release_year <= max_year)
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        if offset is not None:
+            stmt = stmt.offset(offset)
 
         result = await self.session.execute(stmt)
         return list(result.scalars().all())

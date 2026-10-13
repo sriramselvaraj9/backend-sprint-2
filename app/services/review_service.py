@@ -47,17 +47,27 @@ class ReviewService:
         """
         return await self.review_dao.is_film_active(uuid.UUID(str(film_id)))
 
-    async def get_film_reviews(self, film_id: uuid.UUID | str) -> list[Review]:
+    async def get_film_reviews(
+        self,
+        film_id: uuid.UUID | str,
+        page: int = 1,
+        page_size: int = 10,
+    ) -> tuple[list[Review], int]:
         """
-        Retrieve all reviews for an active film through ReviewDAO.
+        Retrieve paginated reviews for an active film through ReviewDAO.
         Raises FilmNotFoundError if film is not active or does not exist.
+        Returns (reviews, total).
         """
         uid = uuid.UUID(str(film_id))
-        logger.info(f"Fetching reviews for film {uid}")
+        logger.info(f"Fetching reviews for film {uid} (page={page}, page_size={page_size})")
         if not await self.review_dao.is_film_active(uid):
             logger.warning(f"Cannot get reviews: Film {uid} not found or inactive")
             raise FilmNotFoundError(film_id=uid)
-        return await self.review_dao.list_by_film(uid)
+
+        offset = (page - 1) * page_size
+        reviews = await self.review_dao.list_by_film(uid, limit=page_size, offset=offset)
+        total = await self.review_dao.count_by_film(uid)
+        return reviews, total
 
     async def get_average_rating(self, film_id: uuid.UUID | str) -> float | None:
         """

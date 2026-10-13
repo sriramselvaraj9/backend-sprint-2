@@ -70,3 +70,40 @@ class FilmCreate(FilmBase):
     Schema for creating a new film.
     Inherits all core attributes and validation from FilmBase.
     """
+
+
+class FilmFilterParams(BaseSchema):
+    """
+    Query parameters for multi-field film filtering.
+    - genre: exact match
+    - from_year: minimum release year (inclusive)
+    - to_year: maximum release year (inclusive)
+    - director: case-insensitive partial match
+    """
+
+    genre: str | None = Field(default=None, description="Exact genre match", strict=False)
+    from_year: int | None = Field(default=None, ge=1888, description="Minimum release year (inclusive)", strict=False)
+    to_year: int | None = Field(default=None, ge=1888, description="Maximum release year (inclusive)", strict=False)
+    director: str | None = Field(default=None, description="Case-insensitive substring match for director", strict=False)
+    min_year: int | None = Field(default=None, ge=1888, description="Alias for from_year", strict=False)
+    max_year: int | None = Field(default=None, ge=1888, description="Alias for to_year", strict=False)
+
+    @model_validator(mode="after")
+    def validate_year_range(self) -> "FilmFilterParams":
+        effective_from_year = self.from_year if self.from_year is not None else self.min_year
+        effective_to_year = self.to_year if self.to_year is not None else self.max_year
+        if effective_from_year is not None and effective_to_year is not None:
+            if effective_from_year > effective_to_year:
+                raise ValueError("from_year cannot be greater than to_year (from_year <= to_year)")
+        return self
+
+
+class FilmCursorResponse(BaseSchema):
+    """
+    Response schema for cursor-based film pagination.
+    """
+
+    items: list[FilmResponse] = Field(..., description="Film records for current cursor page")
+    next_cursor: str | None = Field(default=None, description="Opaque cursor for next page or null")
+    page_size: int = Field(..., description="Requested page size")
+

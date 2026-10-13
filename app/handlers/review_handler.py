@@ -20,9 +20,14 @@ class ReviewHandler:
     def __init__(self, service: ReviewService) -> None:
         self.service = service
 
-    async def get_film_reviews(self, film_id: uuid.UUID | str) -> dict:
+    async def get_film_reviews(
+        self,
+        film_id: uuid.UUID | str,
+        page: int = 1,
+        page_size: int = 10,
+    ) -> dict:
         uid = uuid.UUID(str(film_id))
-        reviews = await self.service.get_film_reviews(uid)
+        reviews, total = await self.service.get_film_reviews(uid, page=page, page_size=page_size)
         reviews_data = [
             {
                 "id": r.id,
@@ -36,9 +41,10 @@ class ReviewHandler:
             for r in reviews
         ]
         return {
-            "message": f"Reviews for film ID {film_id} fetched successfully",
-            "film_id": str(film_id),
-            "reviews": reviews_data,
+            "page": page,
+            "page_size": page_size,
+            "total": total,
+            "items": reviews_data,
         }
 
     async def create_film_review(

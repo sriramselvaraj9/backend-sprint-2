@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from app.core.config import Settings
 from app.dependencies import (
@@ -11,7 +11,8 @@ from app.dependencies import (
     require_role,
 )
 from app.handlers.film_handler import FilmHandler
-from app.schemas.film import FilmCreate, FilmResponse, FilmYearRange
+from app.schemas.common import PaginationParams
+from app.schemas.film import FilmCreate, FilmCursorResponse, FilmFilterParams, FilmResponse, FilmYearRange
 from app.schemas.user import AuthenticatedUser
 
 router = APIRouter(tags=["Films"])
@@ -19,26 +20,53 @@ router = APIRouter(tags=["Films"])
 
 @router.get("/films")
 async def get_films(
-    genre: str | None = None,
+    pagination: PaginationParams = Depends(),
+    filters: FilmFilterParams = Depends(),
+    cursor: str | None = Query(default=None, description="Opaque pagination cursor"),
+    mode: str | None = Query(default=None, description="Pagination mode: 'offset' or 'cursor'"),
     current_user: AuthenticatedUser = Depends(get_current_user),
-    config: Settings = Depends(get_config),
     film_handler: FilmHandler = Depends(get_film_handler),
-    trace_id: str = Depends(get_trace_id),
 ) -> dict:
     """
-    Retrieve all active films with optional genre filter.
+    Retrieve active films with pagination and multi-field filtering.
+    Supports offset-based pagination (page, page_size) and cursor-based pagination (cursor).
     Accessible to Admin, Critic, and Viewer.
     Layered flow: Route -> Handler -> Service -> DAO -> Database.
     """
-    films_data = await film_handler.get_all_films(genre=genre)
-    return {
-        "message": "Films retrieved successfully",
-        "api_version": config.API_VERSION,
-        "trace_id": trace_id,
-        "database": "postgresql+asyncpg",
-        "db_session": "active",
-        "data": films_data.get("films", films_data),
-    }
+    effective_from_year = filters.from_year if filters.from_year is not None else filters.min_year
+    effective_to_year = filters.to_year if filters.to_year is not None else filters.max_year
+    return await film_handler.get_all_films(
+        page=pagination.page,
+        page_size=pagination.page_size,
+        cursor=cursor,
+        mode=mode,
+        genre=filters.genre,
+        from_year=effective_from_year,
+        to_year=effective_to_year,
+        director=filters.director,
+    )
+
+
+@router.get("/films/cursor", response_model=FilmCursorResponse)
+async def get_films_cursor(
+    cursor: str | None = Query(default=None, description="Opaque pagination cursor (base64)"),
+    page_size: int = Query(default=10, ge=1, le=100, description="Page size (1-100)"),
+    filters: FilmFilterParams = Depends(),
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    film_handler: FilmHandler = Depends(get_film_handler),
+) -> dict:
+    
+    effective_from_year = filters.from_year if filters.from_year is not None else filters.min_year
+    effective_to_year = filters.to_year if filters.to_year is not None else filters.max_year
+    return await film_handler.get_films_cursor(
+        cursor=cursor,
+        page_size=page_size,
+        genre=filters.genre,
+        from_year=effective_from_year,
+        to_year=effective_to_year,
+        director=filters.director,
+    )
+
 
 
 @router.get("/films/{film_id}")

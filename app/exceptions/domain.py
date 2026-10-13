@@ -240,3 +240,22 @@ class InvalidRefreshTokenError(DomainError):
             error_code="INVALID_REFRESH_TOKEN",
             status_code=status.HTTP_401_UNAUTHORIZED,
         )
+
+
+class InvalidCursorError(DomainError):
+    """
+    Raised when an opaque pagination cursor is malformed or invalid.
+    """
+
+    def __init__(
+        self,
+        message: str = "Invalid pagination cursor",
+        detail: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(
+            message=message,
+            detail=detail or {},
+            error_code="INVALID_CURSOR",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
