@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, Integer, String, Uuid, func, text
+from sqlalchemy import Boolean, DateTime, Float, Integer, String, Uuid, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -44,6 +44,18 @@ class Film(Base):
         default=True,
         server_default=text("true"),
         nullable=False,
+    )
+
+    # Denormalized aggregate attributes
+    review_count: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        server_default=text("0"),
+        nullable=False,
+    )
+    average_rating: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
     )
 
     # Database-generated created_at timestamp

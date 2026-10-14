@@ -1,3 +1,3 @@
-from app.middlewares.request_trace import request_trace_logging_middleware
+from app.middlewares.request_trace import request_id_middleware
 
-__all__ = ["request_trace_logging_middleware"]
+__all__ = ["request_id_middleware"]

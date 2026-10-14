@@ -19,7 +19,7 @@ from app.exceptions.domain import InvalidTokenError
 from app.handlers.auth_user_handler import AuthUserHandler
 from app.handlers.film_handler import FilmHandler
 from app.handlers.review_handler import ReviewHandler
-from app.logging_config import get_current_request_id, set_current_request_id
+from app.logging_config import get_request_id, set_request_id
 from app.schemas.user import AuthenticatedUser
 from app.services.auth_user_service import UserService
 from app.services.film_service import FilmService
@@ -61,16 +61,16 @@ def get_trace_id(
     Integrates with the centralized logging ContextVar.
     Reads existing context ID, or X-Request-ID header if present, or generates a new UUID.
     """
-    ctx_id = get_current_request_id()
+    ctx_id = get_request_id()
     if ctx_id:
         return ctx_id
 
     if x_request_id:
-        set_current_request_id(x_request_id)
+        set_request_id(x_request_id)
         return x_request_id
 
     new_id = str(uuid.uuid4())
-    set_current_request_id(new_id)
+    set_request_id(new_id)
     return new_id
 
 

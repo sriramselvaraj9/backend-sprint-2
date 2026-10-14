@@ -32,6 +32,8 @@ class FilmResponse(FilmBase):
     """
 
     id: uuid.UUID = Field(..., description="Unique identifier of the film")
+    review_count: int = Field(default=0, description="Total number of reviews")
+    average_rating: float | None = Field(default=None, description="Average review rating")
 
     @field_validator("id", mode="before")
     @classmethod

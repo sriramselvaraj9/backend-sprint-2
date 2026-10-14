@@ -11,12 +11,31 @@ from typing import Any
 request_id_ctx: ContextVar[str | None] = ContextVar("request_id_ctx", default=None)
 
 
-def get_current_request_id() -> str | None:
+def get_request_id() -> str | None:
+    """
+    Retrieve current request ID from the request-scoped ContextVar.
+    """
     return request_id_ctx.get()
 
 
-def set_current_request_id(request_id: str | None) -> Any:
+def set_request_id(request_id: str | None) -> Any:
+    """
+    Store request ID in the request-scoped ContextVar and return the reset token.
+    """
     return request_id_ctx.set(request_id)
+
+
+def reset_request_id(token: Any = None) -> None:
+    """
+    Safely reset the request-scoped ContextVar to its previous state.
+    """
+    if token is not None:
+        try:
+            request_id_ctx.reset(token)
+            return
+        except Exception:
+            pass
+    request_id_ctx.set(None)
 
 
 # ==============================================================================
@@ -38,7 +57,7 @@ class StructuredJsonFormatter(logging.Formatter):
             "message": record.getMessage(),
         }
 
-        req_id = get_current_request_id()
+        req_id = get_request_id()
         if not req_id:
             req_id = getattr(record, "request_id", None)
 

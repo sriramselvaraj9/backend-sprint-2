@@ -78,6 +78,27 @@ class ReviewDAO:
         avg = result.scalar_one_or_none()
         return float(avg) if avg is not None else None
 
+    async def get_review_aggregates_by_film_id(self, film_id: uuid.UUID) -> tuple[int, float | None]:
+        """
+        Retrieve authoritative review count and average rating for an active film.
+        Returns (count, average_rating).
+        """
+        stmt = (
+            select(
+                func.count(Review.id),
+                func.avg(Review.rating),
+            )
+            .join(Review.film)
+            .where(
+                Review.film_id == film_id,
+                Film.is_active == True,
+            )
+        )
+        result = await self.session.execute(stmt)
+        count, avg = result.one()
+        avg_rating = round(float(avg), 1) if avg is not None else None
+        return int(count or 0), avg_rating
+
     async def create(self, review: Review) -> Review:
         """
         Accept a Review ORM object.

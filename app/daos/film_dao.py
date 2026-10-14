@@ -240,6 +240,26 @@ class FilmDAO:
         film = await dao.soft_delete(film_id)
         return film is not None
 
+    async def update_film_review_aggregates(
+        self,
+        film_id: uuid.UUID | str,
+        review_count: int,
+        average_rating: float | None,
+    ) -> Film | None:
+        """
+        Update the denormalized review count and average rating on an active film record.
+        Commits changes, refreshes the instance, and returns the updated Film or None.
+        """
+        target_id = uuid.UUID(str(film_id)) if isinstance(film_id, str) else film_id
+        film = await self.get_by_id(target_id, active_only=True)
+        if film is None:
+            return None
+        film.review_count = review_count
+        film.average_rating = average_rating
+        await self.session.commit()
+        await self.session.refresh(film)
+        return film
+
     # Alias for update_film
     update_film = update
 

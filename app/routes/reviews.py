@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, Query, Request
 
 from app.dependencies import (
     get_current_user,
@@ -9,9 +9,11 @@ from app.dependencies import (
     require_role,
 )
 from app.handlers.review_handler import ReviewHandler
+from app.logging_config import get_request_id
 from app.schemas.common import PaginationParams
 from app.schemas.review import ReviewCreate, ReviewResponse, ReviewUpdate
 from app.schemas.user import AuthenticatedUser
+from app.services.film_service import recalculate_film_review_aggregates
 
 router = APIRouter(tags=["Reviews"])
 
@@ -39,6 +41,8 @@ async def get_film_reviews(
 async def create_film_review(
     film_id: uuid.UUID,
     review_data: ReviewCreate,
+    background_tasks: BackgroundTasks,
+    request: Request,
     current_user: AuthenticatedUser = Depends(require_role("admin", "critic")),
     review_handler: ReviewHandler = Depends(get_review_handler),
 ) -> dict:
@@ -46,18 +50,26 @@ async def create_film_review(
     Create a review for a film through the Handler layer.
     Admin and Critic only: Viewers are forbidden.
     Enforces Rule 1: One review per user per film.
+    After successful commit, schedules background aggregate recalculation.
     """
     author_id = review_data.user_id if review_data.user_id is not None else current_user.id
-    return await review_handler.create_film_review(
+    result = await review_handler.create_film_review(  # 1. Create and commit the review to PostgreSQL
         film_id=film_id,
         review_data=review_data,
         user_id=author_id,
     )
+    # 2. Get trace ID from request state
+    request_id = getattr(request.state, "request_id", None) or get_request_id()
+    # 3. Schedule background recalculation
+    background_tasks.add_task(recalculate_film_review_aggregates, film_id=film_id, request_id=request_id)
+    return result
 
 
 @router.post("/reviews", response_model=ReviewResponse)
 async def create_review(
     review_data: ReviewCreate,
+    background_tasks: BackgroundTasks,
+    request: Request,
     current_user: AuthenticatedUser = Depends(require_role("admin", "critic")),
     review_handler: ReviewHandler = Depends(get_review_handler),
 ) -> dict:
@@ -65,13 +77,18 @@ async def create_review(
     Create a review with film_id provided in body.
     Admin and Critic only: Viewers are forbidden.
     Enforces Rule 1: One review per user per film.
+    After successful commit, schedules background aggregate recalculation.
     """
     author_id = review_data.user_id if review_data.user_id is not None else current_user.id
-    return await review_handler.create_film_review(
-        film_id=review_data.film_id,
+    target_film_id = review_data.film_id
+    result = await review_handler.create_film_review(
+        film_id=target_film_id,
         review_data=review_data,
         user_id=author_id,
     )
+    request_id = getattr(request.state, "request_id", None) or get_request_id()
+    background_tasks.add_task(recalculate_film_review_aggregates, film_id=target_film_id, request_id=request_id)
+    return result
 
 
 @router.patch("/reviews/{review_id}")

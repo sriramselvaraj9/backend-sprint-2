@@ -336,6 +336,68 @@ class FilmService:
         await self.cache.invalidate()
         return deleted_film
 
+    async def recalculate_film_review_aggregates(self, film_id: uuid.UUID | str) -> Film | None:
+        """
+        Coordinate aggregate recalculation for a Film:
+        1. Query authoritative review aggregates (count and average) from ReviewDAO.
+        2. Persist updated aggregate values to FilmDAO.
+        3. Invalidate Redis cache to ensure fresh reads.
+        """
+        target_film_id = uuid.UUID(str(film_id))
+        logger.info(f"Recalculating review aggregates for film {target_film_id}")
+
+        review_count, average_rating = await self.review_dao.get_review_aggregates_by_film_id(target_film_id)
+        logger.info(
+            f"Authoritative aggregates for film {target_film_id}: count={review_count}, avg={average_rating}"
+        )
+
+        updated_film = await self.film_dao.update_film_review_aggregates(
+            film_id=target_film_id,
+            review_count=review_count,
+            average_rating=average_rating,
+        )
+
+        if updated_film is not None and self.cache is not None:
+            await self.cache.invalidate("films:*")
+
+        return updated_film
+
+
+async def recalculate_film_review_aggregates(
+    film_id: uuid.UUID | str,
+    request_id: str | None = None,
+) -> None:
+    """
+    Background task entry point for aggregate recalculation.
+    Manages its own separate asynchronous database session and request-scoped logging context.
+    Never reuses a request-scoped database session after the request ends.
+    """
+    from app.core.database import SessionLocal
+    from app.core.redis import redis_client
+    from app.logging_config import reset_request_id, set_request_id
+
+    target_id = uuid.UUID(str(film_id))
+    token = None
+    if request_id:
+        token = set_request_id(request_id)
+
+    try:
+        logger.info(f"Background aggregate recalculation started for film {target_id}")
+        async with SessionLocal() as db_session:
+            film_dao = FilmDAO(db_session)
+            review_dao = ReviewDAO(db_session)
+            film_service = FilmService(film_dao=film_dao, review_dao=review_dao, redis_client=redis_client)
+            await film_service.recalculate_film_review_aggregates(target_id)
+        logger.info(f"Background aggregate recalculation completed successfully for film {target_id}")
+    except Exception as exc:
+        logger.error(
+            f"Background aggregate recalculation failed for film {target_id}: {exc}",
+            exc_info=True,
+        )
+    finally:
+        if token is not None:
+            reset_request_id(token)
+
 
 # ---------------------------------------------------------
 # Standalone functions for backward compatibility

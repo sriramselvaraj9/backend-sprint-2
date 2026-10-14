@@ -1,88 +1,96 @@
 import React from "react";
+import Link from "next/link";
 
 export default function HomePage() {
-  const filmUiUrl = 
+  const filmUiUrl =
     process.env.NEXT_PUBLIC_FILM_UI_URL || "http://localhost:8000/ui/films";
 
   return (
-    <main
+    <div
       style={{
-        minHeight: "100vh",
-        background: "linear-gradient(180deg, #0b0f19 0%, #060911 100%)",
-        padding: "2rem 1.5rem 4rem",
+        height: "100vh",
+        width: "100vw",
         display: "flex",
         flexDirection: "column",
-        alignItems: "center",
+        overflow: "hidden",
+        backgroundColor: "#060911",
       }}
     >
-      <div style={{ maxWidth: "1040px", width: "100%" }}>
-        {/* Companion App Navigation / Header */}
-        <header
-          style={{
-            marginBottom: "2rem",
-            padding: "1.25rem 1.75rem",
-            background: "rgba(17, 24, 39, 0.85)",
-            backdropFilter: "blur(12px)",
-            border: "1px solid rgba(255, 255, 255, 0.08)",
-            borderRadius: "16px",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: "1rem",
-          }}
-        >
-          <div>
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                fontSize: "0.75rem",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                color: "#818cf8",
-                marginBottom: "0.35rem",
-              }}
-            >
-              <span>⚛️ Next.js Companion Shell</span>
-            </div>
-            <h1
-              style={{
-                margin: 0,
-                fontFamily: "'Outfit', sans-serif",
-                fontSize: "1.5rem",
-                fontWeight: 800,
-                color: "#ffffff",
-                letterSpacing: "-0.02em",
-              }}
-            >
-              Film Review Platform
-            </h1>
-            <p
-              style={{
-                margin: "0.25rem 0 0",
-                fontSize: "0.875rem",
-                color: "#9ca3af",
-              }}
-            >
-              Embedding the server-rendered FastAPI + Jinja2 + htmx view via an isolated iframe.
-            </p>
-          </div>
-
+      {/* Top Application Bar - Spanning Entire Width */}
+      <header
+        style={{
+          height: "68px",
+          width: "100%",
+          padding: "0 2rem",
+          background: "rgba(11, 15, 25, 0.95)",
+          backdropFilter: "blur(16px)",
+          borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexShrink: 0,
+          zIndex: 20,
+        }}
+      >
+        {/* Brand & Subtitle */}
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
           <div
             style={{
-              padding: "0.5rem 0.9rem",
-              background: "rgba(0, 0, 0, 0.35)",
-              border: "1px solid rgba(99, 102, 241, 0.3)",
+              width: "40px",
+              height: "40px",
               borderRadius: "10px",
-              fontSize: "0.8rem",
-              color: "#cbd5e1",
+              background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
               display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "1.25rem",
+              boxShadow: "0 4px 14px rgba(99, 102, 241, 0.4)",
+            }}
+          >
+            🎬
+          </div>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+              <h1
+                style={{
+                  margin: 0,
+                  fontFamily: "'Roboto', sans-serif",
+                  fontSize: "1.25rem",
+                  fontWeight: 700,
+                  color: "#ffffff",
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                Film Review Platform
+              </h1>
+            </div>
+            <p
+              style={{
+                margin: "0.15rem 0 0",
+                fontSize: "0.8rem",
+                color: "#94a3b8",
+              }}
+            >
+              Search, discover and review films
+            </p>
+          </div>
+        </div>
+
+        {/* Action Controls & Navigation */}
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <div
+            style={{
+              display: "none",
+              padding: "0.4rem 0.85rem",
+              background: "rgba(0, 0, 0, 0.4)",
+              border: "1px solid rgba(255, 255, 255, 0.08)",
+              borderRadius: "8px",
+              fontSize: "0.78rem",
+              color: "#cbd5e1",
               alignItems: "center",
               gap: "0.5rem",
             }}
+            className="header-target-badge"
           >
             <span
               style={{
@@ -94,48 +102,58 @@ export default function HomePage() {
               }}
             />
             <span>
-              Target UI: <code style={{ color: "#a5b4fc" }}>{filmUiUrl}</code>
+              Target: <code style={{ color: "#a5b4fc" }}>{filmUiUrl}</code>
             </span>
           </div>
-        </header>
 
-        {/* Embedded Server-Rendered View */}
-        <section
-          style={{
-            position: "relative",
-            width: "100%",
-            borderRadius: "20px",
-            overflow: "hidden",
-            boxShadow:
-              "0 20px 40px -15px rgba(0, 0, 0, 0.7), 0 0 1px 1px rgba(255, 255, 255, 0.1)",
-            background: "#0b0f19",
-          }}
-        >
-          <iframe 
-            src={filmUiUrl}
-            title="Film Search Platform"
+          <Link
+            href="/reviews"
+            id="nav-add-review"
             style={{
-              width: "100%",
-              minHeight: "820px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              padding: "0.55rem 1.25rem",
+              background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
               border: "none",
-              display: "block",
+              borderRadius: "10px",
+              fontSize: "0.85rem",
+              fontWeight: 700,
+              color: "#ffffff",
+              textDecoration: "none",
+              boxShadow: "0 4px 14px rgba(99, 102, 241, 0.4)",
+              transition: "transform 0.15s ease, box-shadow 0.15s ease",
             }}
-            loading="lazy"
-          />
-        </section>
+          >
+            <span>⭐ Add Review</span>
+            <span style={{ fontSize: "1rem" }}>&rarr;</span>
+          </Link>
+        </div>
+      </header>
 
-        {/* Architecture Note Footer */}
-        <footer
+      {/* Embedded Full-Bleed View Area - Zero Double Scrollbars */}
+      <main
+        style={{
+          flex: 1,
+          width: "100%",
+          position: "relative",
+          overflow: "hidden",
+          backgroundColor: "#060911",
+        }}
+      >
+        <iframe
+          src={filmUiUrl}
+          title="Film Search Platform"
           style={{
-            marginTop: "1.75rem",
-            textAlign: "center",
-            fontSize: "0.8rem",
-            color: "#6b7280",
+            width: "100%",
+            height: "100%",
+            border: "none",
+            display: "block",
           }}
-        >
-          Day 1 Architecture: Next.js companion app embedding FastAPI server-rendered UI fragment.
-        </footer>
-      </div>
-    </main>
+          loading="lazy"
+        />
+      </main>
+    </div>
   );
 }
+
