@@ -74,6 +74,27 @@ class FilmCreate(FilmBase):
     """
 
 
+class FilmUpdate(BaseSchema):
+    """
+    Schema for updating an existing film.
+    All attributes are optional to support partial updates.
+    """
+
+    title: str | None = Field(default=None, min_length=1, max_length=255, description="Updated film title")
+    release_year: int | None = Field(default=None, ge=1888, description="Updated release year")
+    genre: str | None = Field(default=None, min_length=1, max_length=100, description="Updated genre")
+    director: str | None = Field(default=None, min_length=1, max_length=255, description="Updated director")
+
+    @field_validator("release_year")
+    @classmethod
+    def validate_release_year_not_future(cls, value: int | None) -> int | None:
+        if value is not None:
+            current_year = datetime.now(UTC).year
+            if value > current_year + 5:
+                raise ValueError(f"release_year cannot be more than 5 years in the future (max {current_year + 5})")
+        return value
+
+
 class FilmFilterParams(BaseSchema):
     """
     Query parameters for multi-field film filtering.

@@ -21,6 +21,7 @@ dependencies = [
     "pytest-asyncio>=0.24.0",
     "redis>=8.1.0",
     "jinja2>=3.1.6",
+    "aiosqlite>=0.22.1",
 ]
 
 [tool.pyright]
@@ -34,8 +35,8 @@ target-version = "py313"
 [tool.ruff.lint]
 ignore = ["B008"]
 
-[tool.pytest.ini_options]
-pythonpath = ["."]
-asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "session"
-asyncio_default_test_loop_scope = "session"
+[dependency-groups]
+dev = [
+    "pytest-cov>=7.1.0",
+    "pytest-mock>=3.17.0",
+]

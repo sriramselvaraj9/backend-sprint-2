@@ -12,7 +12,14 @@ from app.dependencies import (
 )
 from app.handlers.film_handler import FilmHandler
 from app.schemas.common import PaginationParams
-from app.schemas.film import FilmCreate, FilmCursorResponse, FilmFilterParams, FilmResponse, FilmYearRange
+from app.schemas.film import (
+    FilmCreate,
+    FilmCursorResponse,
+    FilmFilterParams,
+    FilmResponse,
+    FilmUpdate,
+    FilmYearRange,
+)
 from app.schemas.user import AuthenticatedUser
 
 router = APIRouter(tags=["Films"])
@@ -121,6 +128,7 @@ async def filter_films_by_year_range(
 @router.patch("/films/{film_id}")
 async def update_film(
     film_id: uuid.UUID,
+    update_data: FilmUpdate | None = None,
     current_user: AuthenticatedUser = Depends(require_role("admin")),
     film_handler: FilmHandler = Depends(get_film_handler),
 ) -> dict:
@@ -128,7 +136,8 @@ async def update_film(
     Update film attributes through the Handler layer.
     Admin only: Critics and Viewers are forbidden.
     """
-    return await film_handler.update_film(film_id)
+    data = update_data.model_dump(exclude_unset=True) if update_data is not None else None
+    return await film_handler.update_film(film_id, update_data=data)
 
 
 @router.delete("/films/{film_id}")
