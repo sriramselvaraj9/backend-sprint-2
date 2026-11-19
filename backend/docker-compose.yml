@@ -1,0 +1,144 @@
+services:
+  db-secret-init:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: backend-film-review-db-secret-init
+    user: "0:0"
+    command: python -c "from app.core.secrets import get_database_secret; import os; db = get_database_secret(); os.makedirs('/run/secrets', exist_ok=True); p = '/run/secrets/pg_password'; open(p, 'w').write(db.password); os.chmod(p, 0o400)"
+    volumes:
+      - db_password_secret:/run/secrets
+    env_file:
+      - .env
+    environment:
+      - AWS_ENDPOINT_URL=${AWS_ENDPOINT_URL}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - DATABASE_SECRET_NAME=${DATABASE_SECRET_NAME}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: "no"
+
+  db:
+    image: postgres:16-alpine
+    container_name: backend-film-review-db
+    restart: unless-stopped
+    depends_on:
+      db-secret-init:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg_password
+    ports:
+      - "${DB_PORT}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - db_password_secret:/run/secrets:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: backend-film-review-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: backend-film-review-api
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${PORT}:${PORT}"
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - POSTGRES_HOST=db
+      - DB_PORT=5432
+      - REDIS_URL=redis://redis:6379/0
+      - HOST=${HOST}
+      - PORT=${PORT}
+      - AWS_ENDPOINT_URL=${AWS_ENDPOINT_URL}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
+      - S3_DEFAULT_PREFIX=${S3_DEFAULT_PREFIX}
+      - S3_ENDPOINT_URL=${S3_ENDPOINT_URL}
+      - SQS_QUEUE_NAME=${SQS_QUEUE_NAME}
+      - SQS_ENDPOINT_URL=${SQS_ENDPOINT_URL}
+      - DATABASE_SECRET_NAME=${DATABASE_SECRET_NAME}
+      - JWT_SECRET_NAME=${JWT_SECRET_NAME}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request, os; port = os.environ.get('PORT'); urllib.request.urlopen(f'http://localhost:{port}/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: backend-film-review-worker
+    command: python worker.py
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - POSTGRES_HOST=db
+      - DB_PORT=5432
+      - REDIS_URL=redis://redis:6379/0
+      - AWS_ENDPOINT_URL=${AWS_ENDPOINT_URL}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
+      - SQS_QUEUE_NAME=${SQS_QUEUE_NAME}
+      - SQS_DLQ_NAME=${SQS_DLQ_NAME}
+      - SQS_ENDPOINT_URL=${SQS_ENDPOINT_URL}
+      - SQS_MAX_RECEIVE_COUNT=${SQS_MAX_RECEIVE_COUNT:-3}
+      - SQS_VISIBILITY_TIMEOUT=${SQS_VISIBILITY_TIMEOUT:-30}
+      - SQS_WAIT_TIME_SECONDS=${SQS_WAIT_TIME_SECONDS:-20}
+      - DATABASE_SECRET_NAME=${DATABASE_SECRET_NAME}
+      - JWT_SECRET_NAME=${JWT_SECRET_NAME}
+      - SIMULATE_HANDLER_FAILURE=${SIMULATE_HANDLER_FAILURE:-false}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    name: day4_postgres_data
+  db_password_secret:

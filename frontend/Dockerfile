@@ -9,14 +9,20 @@ RUN npm ci
 # Copy project source files
 COPY . .
 
-# Build arguments for Next.js public environment variables
-ARG NEXT_PUBLIC_API_URL=http://localhost:8000
-ARG NEXT_PUBLIC_FILM_UI_URL=http://localhost:8000/ui/films
+# Build arguments for Next.js environment variables (no hardcoded defaults; strictly read from env)
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_FILM_UI_URL
+ARG INTERNAL_API_URL
+ARG NODE_ENV
+
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_FILM_UI_URL=$NEXT_PUBLIC_FILM_UI_URL
+ENV INTERNAL_API_URL=$INTERNAL_API_URL
+ENV NODE_ENV=$NODE_ENV
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Build the Next.js production bundle
+# Execute pre-deployment safety gates (environment validation, backend connectivity,
+# frontend test suite) and build the Next.js production bundle
 RUN npm run build
 
 # Runner stage
@@ -25,6 +31,7 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
 ENV NEXT_TELEMETRY_DISABLED=1
 
@@ -41,5 +48,8 @@ COPY --from=builder /app/next.config.mjs ./next.config.mjs
 USER nextjs
 
 EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=20s \
+  CMD node -e "fetch('http://localhost:' + (process.env.PORT || 3000) + '/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
 
 CMD ["npm", "run", "start"]

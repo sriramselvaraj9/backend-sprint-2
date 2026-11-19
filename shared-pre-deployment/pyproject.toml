@@ -1,0 +1,54 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "shared-pre-deployment"
+version = "1.0.0"
+description = "A modular pre-deployment verification gate and orchestration runner for services."
+readme = "README.md"
+license = "MIT"
+authors = [
+    { name = "Film Review Platform Engineering", email = "dev@example.com" },
+]
+keywords = ["deployment", "pre-deployment", "validation", "gate", "healthcheck", "devops"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "click>=8.1.0",
+    "sqlalchemy[asyncio]>=2.0.0",
+    "greenlet>=3.0.0",
+    "asyncpg>=0.28.0",
+    "redis>=4.5.0",
+]
+
+[project.scripts]
+shared-pre-deployment = "shared_pre_deployment.cli:main"
+pre-deployment-runner = "shared_pre_deployment.cli:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-mock>=3.14.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/shared_pre_deployment"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

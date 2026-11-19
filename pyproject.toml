@@ -1,42 +1,30 @@
 [project]
-name = "film-review-platform-day4"
+name = "day4"
 version = "0.1.0"
-description = "Film Review Platform - Day 4: Async Database Layer"
+description = "Film Review Platform - Day 4"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "fastapi>=0.141.1",
-    "httpx>=0.28.1",
-    "pydantic>=2.10.0",
-    "pydantic-settings>=2.15.0",
-    "uvicorn>=0.53.0",
-    "sqlalchemy>=2.0.0",
-    "asyncpg>=0.30.0",
-    "greenlet>=3.5.6",
-    "alembic>=1.20.0",
-    "passlib[bcrypt]>=1.7.4",
-    "bcrypt<=4.0.1",
-    "python-jose[cryptography]>=3.3.0",
-    "pytest>=8.0.0",
-    "pytest-asyncio>=0.24.0",
-    "redis>=8.1.0",
-    "jinja2>=3.1.6",
-    "aiosqlite>=0.22.1",
+    "boto3>=1.44.0",
+    "pydantic>=2.14.3",
 ]
 
+[tool.pyrefly]
+search-path = ["backend", "shared-pre-deployment/src"]
+search_path = ["backend", "shared-pre-deployment/src"]
+
 [tool.pyright]
+extraPaths = ["backend", "shared-pre-deployment/src"]
 venvPath = "."
 venv = ".venv"
 
-[tool.ruff]
-line-length = 120
-target-version = "py313"
-
-[tool.ruff.lint]
-ignore = ["B008"]
-
-[dependency-groups]
-dev = [
-    "pytest-cov>=7.1.0",
-    "pytest-mock>=3.17.0",
+[tool.pytest.ini_options]
+pythonpath = ["backend"]
+testpaths = ["backend/tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+markers = [
+    "unit: Pure unit tests requiring no external infrastructure (no DB, Redis, HTTP)",
+    "integration: Integration tests exercising routes, services, DAOs, and database",
 ]
